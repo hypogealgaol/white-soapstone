@@ -93,11 +93,23 @@ def launch() -> None:
     # AppIndicator3/Ayatana GI typelibs on Linux, which WSL doesn't ship and doesn't
     # really have a tray surface for anyway) and importing pystray can fail entirely
     # in environments that lack it. Never let that take the whole app down.
-    try:
-        import pystray
-    except Exception as exc:  # noqa: BLE001 - tray is optional, any failure just disables it
-        pystray = None
-        logger.warning("System tray icon unavailable (%s) - continuing without it.", exc)
+    pystray = None
+    if sys.platform == "darwin":
+        # pystray's macOS backend needs its Icon.run() on the main thread, same as
+        # pywebview's webview.start() below - macOS only has one. Confirmed via manual
+        # testing that this is a real conflict, not a theoretical one: an isolated
+        # webview.start(gui="cocoa") with no pystray involved renders a real window
+        # fine, but this app (which also starts pystray.Icon.run() on a background
+        # thread) rendered nothing. Skip the tray entirely here until that's resolved
+        # with a proper main-thread-sharing approach, rather than risk breaking the
+        # window again for a nice-to-have.
+        logger.warning("System tray icon disabled on macOS - conflicts with pywebview for the main thread.")
+    else:
+        try:
+            import pystray
+        except Exception as exc:  # noqa: BLE001 - tray is optional, any failure just disables it
+            pystray = None
+            logger.warning("System tray icon unavailable (%s) - continuing without it.", exc)
 
     def on_closing() -> bool | None:
         # The X button hides to tray instead of exiting - only the tray's "Quit" is
