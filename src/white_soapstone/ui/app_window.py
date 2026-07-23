@@ -33,6 +33,11 @@ BACKGROUND_COLOR = "#1e1e1e"  # matches the UI's dark theme, avoids a white flas
 # Other platforms haven't been tested (no Mac available during development).
 _STATIC_DIR = Path(__file__).parent.parent / "web" / "static"
 ICON_PATH = _STATIC_DIR / "icon.ico" if sys.platform == "win32" else _STATIC_DIR / "icon.png"
+# pywebview's automatic backend detection doesn't reliably pick Cocoa on macOS - a
+# bare `webview.start()` there silently renders nothing (confirmed via manual testing:
+# forcing gui="cocoa" opens a real, working WKWebView window; leaving it on auto-detect
+# does not). No such issue observed on Windows/Linux, so only override here.
+_WEBVIEW_GUI = "cocoa" if sys.platform == "darwin" else None
 
 
 def _find_free_port() -> int:
@@ -127,4 +132,4 @@ def launch() -> None:
         )
         threading.Thread(target=tray_icon.run, daemon=True).start()
 
-    webview.start(icon=str(ICON_PATH) if ICON_PATH.exists() else None)
+    webview.start(icon=str(ICON_PATH) if ICON_PATH.exists() else None, gui=_WEBVIEW_GUI)
