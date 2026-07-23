@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -27,9 +28,15 @@ from ..rekordbox.errors import RekordboxAccessError
 from ..rekordbox.extractor import dump_library
 from ..sync.pull_service import pull_all
 from ..sync.sync_service import ensure_content_pool_folder, run_sync, update_handle
+from ..transcode import ffmpeg
 
 STATIC_DIR = Path(__file__).parent / "static"
 CLIENT_SECRETS = "client_secret.json"
+# Repo root, so exports land somewhere a human will actually find them next to the
+# code, not buried in a per-OS cache dir - this is a dev/manual-testing tool, not
+# something the packaged app is expected to ship or run this endpoint from.
+GHOST_EXPORT_DIR = Path(__file__).resolve().parents[3] / "ghost-track-exports"
+GHOST_SHORT_DURATION_SEC = 5
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +210,38 @@ def api_preview(user_id: str, track_id: str) -> FileResponse:
             raise HTTPException(404, "preview file missing from Drive")
 
     return FileResponse(local_path, media_type="audio/mpeg")
+
+
+def _safe_filename_component(text: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", text).strip("_") or "untitled"
+
+
+@app.post("/api/users/{user_id}/tracks/{track_id}/ghost")
+def api_create_ghost_track(user_id: str, track_id: str) -> dict:
+    """Generates a 5-second and a full-length silent placeholder MP3 for a peer's
+    track into ghost-track-exports/, for manually importing into Rekordbox to test
+    Track Matching against real CDJ hardware. Doesn't touch Rekordbox itself - that's
+    a manual import step for now (automatic writing may come later)."""
+    conn = cache_db.connect()
+    track = cache_db.get_track(conn, user_id, track_id)
+    if not track:
+        raise HTTPException(404, "track not found")
+    if not track["duration_sec"] or track["duration_sec"] <= 0:
+        raise HTTPException(
+            422, "This track has no recorded duration - can't generate a matching-length ghost file."
+        )
+
+    label = _safe_filename_component(f"{track['artist'] or ''}_{track['title'] or track_id}")
+    short_path = GHOST_EXPORT_DIR / f"{label}_{track_id[:8]}_5sec.mp3"
+    full_path = GHOST_EXPORT_DIR / f"{label}_{track_id[:8]}_full.mp3"
+
+    try:
+        ffmpeg.generate_silent_mp3(short_path, duration_sec=GHOST_SHORT_DURATION_SEC)
+        ffmpeg.generate_silent_mp3(full_path, duration_sec=track["duration_sec"])
+    except ffmpeg.TranscodeError as exc:
+        raise HTTPException(500, {"error_code": "TranscodeError", "message": str(exc)}) from exc
+
+    return {"short_path": str(short_path), "full_path": str(full_path)}
 
 
 @app.get("/api/my-playlists")

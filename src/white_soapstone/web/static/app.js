@@ -219,6 +219,31 @@ async function loadTracks(userId, playlistId, playlistName) {
       player.play();
     });
     playCell.appendChild(playBtn);
+
+    const ghostBtn = document.createElement("button");
+    ghostBtn.className = "ghost-btn";
+    ghostBtn.textContent = "👻";
+    ghostBtn.title = "Generate ghost placeholder mp3s (5s + full length) into ghost-track-exports/ for manual Rekordbox import";
+    ghostBtn.addEventListener("click", async () => {
+      ghostBtn.disabled = true;
+      setStatus(`Generating ghost files for "${track.title}"...`, "syncing");
+      try {
+        const response = await fetch(`/api/users/${userId}/tracks/${track.id}/ghost`, { method: "POST" });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const detail = body.detail;
+          const message = typeof detail === "string" ? detail : detail && detail.message;
+          throw new Error(message || "ghost track generation failed");
+        }
+        setStatus(`Ghost files created in ghost-track-exports/ for "${track.title}".`, "done");
+      } catch (err) {
+        setStatus(err.message || "Failed to create ghost files - click Logs for details.", "error");
+      } finally {
+        ghostBtn.disabled = false;
+      }
+    });
+    playCell.appendChild(ghostBtn);
+
     row.appendChild(playCell);
 
     for (const value of [track.title, track.artist, track.bpm ?? "", track.key ?? "", formatDuration(track.duration_sec)]) {

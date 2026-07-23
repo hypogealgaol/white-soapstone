@@ -340,6 +340,24 @@ tbody tr:hover {
   padding: 0 6px;
 }
 
+.ghost-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 6px;
+}
+
+.ghost-btn:hover {
+  color: var(--accent);
+}
+
+.ghost-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 footer {
   display: flex;
   align-items: center;

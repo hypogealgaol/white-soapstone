@@ -11,3 +11,4 @@ oauth-token.enc
 preview_cache/
 *.db
 client_secret.json
+ghost-track-exports/

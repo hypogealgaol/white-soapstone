@@ -31,6 +31,41 @@ def ffmpeg_path() -> str:
     return imageio_ffmpeg.get_ffmpeg_exe()
 
 
+def generate_silent_mp3(
+    dest_path: str | Path,
+    duration_sec: float,
+    bitrate_kbps: int = DEFAULT_BITRATE_KBPS,
+) -> Path:
+    """Generates a silent placeholder MP3 of the given duration at dest_path.
+
+    Used for "ghost tracks" - stand-ins for a peer's song stamped with their metadata
+    but with no real audio, for manually testing Rekordbox's Track Matching feature.
+    Returns dest_path on success. Raises TranscodeError with ffmpeg's stderr on failure.
+    """
+    dest_path = Path(dest_path)
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+    cmd = [
+        ffmpeg_path(),
+        "-y",
+        "-f", "lavfi",
+        "-i", "anullsrc=r=44100:cl=stereo",
+        "-t", str(duration_sec),
+        "-codec:a", "libmp3lame",
+        "-b:a", f"{bitrate_kbps}k",
+        str(dest_path),
+    ]
+    result = subprocess.run(
+        cmd, capture_output=True, encoding="utf-8", errors="replace", creationflags=_CREATIONFLAGS
+    )
+    if result.returncode != 0:
+        raise TranscodeError(
+            f"ffmpeg failed generating silent mp3 at '{dest_path}' (exit {result.returncode}): "
+            f"{result.stderr.strip()[-2000:]}"
+        )
+    return dest_path
+
+
 def transcode_to_preview_mp3(
     source_path: str | Path,
     dest_path: str | Path,
