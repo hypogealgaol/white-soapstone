@@ -1,0 +1,13 @@
+.venv/
+.venv-wsl/
+__pycache__/
+*.pyc
+dist/
+build/
+*.spec
+.pytest_cache/
+oauth-token.enc
+*.enc
+preview_cache/
+*.db
+client_secret.json

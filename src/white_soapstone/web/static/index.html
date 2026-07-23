@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>white-soapstone</title>
+<link rel="icon" href="/icon.png" />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="status-bar">
+    <span id="status-icon" class="idle"></span>
+    <h1 id="status-text">Ready to sync</h1>
+    <progress id="sync-progress" max="100" value="0" hidden></progress>
+    <span id="handle-greeting">Hello, <input id="handle-input" type="text" /></span>
+    <img id="app-icon" src="/icon.png" alt="white-soapstone" />
+  </div>
+
+  <header>
+    <select id="user-select"></select>
+    <button id="sync-btn">Sync now</button>
+    <button id="stop-btn" disabled>Stop</button>
+    <button id="pull-btn">Pull</button>
+    <button id="logout-btn" title="Forget the cached Google sign-in only - handle/whitelist/Drive folder stay put">Log out of Google</button>
+    <button id="logs-btn" title="Open the app's log file">Logs</button>
+  </header>
+
+  <main>
+    <section id="my-playlists-view" class="view" hidden>
+      <h2>My Playlists</h2>
+      <p class="hint">Whitelisting is playlist-only - every track in a checked playlist is shared, including ones added later.</p>
+      <div id="rekordbox-error" hidden>
+        <p id="rekordbox-error-message"></p>
+        <button id="browse-rekordbox-btn">Browse for master.db...</button>
+      </div>
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="synced">Synced (<span id="synced-count">0</span>)</button>
+        <button class="tab-btn" data-tab="unsynced">Not Synced (<span id="unsynced-count">0</span>)</button>
+      </div>
+      <ul id="my-playlists-list" class="playlist-list"></ul>
+    </section>
+
+    <section id="peer-view" class="view" hidden>
+      <div class="panel" id="playlists-panel">
+        <h2>Playlists</h2>
+        <ul id="playlists-list" class="playlist-list"></ul>
+      </div>
+      <div class="panel" id="tracks-panel">
+        <h2 id="tracks-heading">Select a playlist</h2>
+        <table id="tracks-table">
+          <thead>
+            <tr><th></th><th>Title</th><th>Artist</th><th>BPM</th><th>Key</th><th>Duration</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <audio id="player" controls></audio>
+    <div id="volume-row">
+      <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="1" />
+    </div>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

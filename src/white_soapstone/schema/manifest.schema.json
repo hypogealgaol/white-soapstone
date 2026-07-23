@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "white-soapstone manifest",
+  "type": "object",
+  "required": ["schema_version", "user", "playlists", "tracks"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 2 },
+    "user": {
+      "type": "object",
+      "required": ["id", "handle", "folder_name", "app_version", "generated_at"],
+      "properties": {
+        "id": { "type": "string" },
+        "handle": { "type": "string" },
+        "folder_name": { "type": "string" },
+        "app_version": { "type": "string" },
+        "generated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "playlists": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "position", "track_ids"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "parent_id": { "type": ["string", "null"] },
+          "parent_name": { "type": ["string", "null"] },
+          "position": { "type": "integer" },
+          "track_ids": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "tracks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "preview"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "A content id (see manifest/builder.py:content_id) - shared across every user's manifest for the same underlying song, not a per-user id. Also the shared preview file's name: SharedFolder/_content/<id>.mp3."
+          },
+          "title": { "type": ["string", "null"] },
+          "artist": { "type": ["string", "null"] },
+          "album": { "type": ["string", "null"] },
+          "genre": { "type": ["string", "null"] },
+          "bpm": { "type": ["number", "null"] },
+          "key": { "type": ["string", "null"] },
+          "duration_sec": { "type": ["number", "null"] },
+          "year": { "type": ["integer", "null"] },
+          "rating": { "type": ["integer", "null"] },
+          "comment": { "type": ["string", "null"] },
+          "preview": {
+            "type": "object",
+            "required": ["format", "bitrate_kbps"],
+            "properties": {
+              "format": { "type": "string" },
+              "bitrate_kbps": { "type": "integer" },
+              "size_bytes": { "type": ["integer", "null"] },
+              "checksum_sha256": { "type": ["string", "null"] },
+              "transcoded_at": { "type": ["string", "null"], "format": "date-time" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
