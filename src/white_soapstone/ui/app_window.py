@@ -15,13 +15,14 @@ import threading
 import time
 from pathlib import Path
 
-import pystray
 import uvicorn
 import webview
 from PIL import Image
 
 from ..config.paths import log_file
 from ..web.server import app
+
+logger = logging.getLogger(__name__)
 
 WINDOW_TITLE = "white-soapstone"
 BACKGROUND_COLOR = "#1e1e1e"  # matches the UI's dark theme, avoids a white flash on load
@@ -82,35 +83,48 @@ def launch() -> None:
 
     quitting = False
 
+    # The tray icon is a nice-to-have, not a requirement for the window itself to
+    # work - its backend is platform/desktop-environment-specific (e.g. needs
+    # AppIndicator3/Ayatana GI typelibs on Linux, which WSL doesn't ship and doesn't
+    # really have a tray surface for anyway) and importing pystray can fail entirely
+    # in environments that lack it. Never let that take the whole app down.
+    try:
+        import pystray
+    except Exception as exc:  # noqa: BLE001 - tray is optional, any failure just disables it
+        pystray = None
+        logger.warning("System tray icon unavailable (%s) - continuing without it.", exc)
+
     def on_closing() -> bool | None:
         # The X button hides to tray instead of exiting - only the tray's "Quit" is
         # allowed to actually end the process (see winforms.py's on_closing: returning
-        # False here sets args.Cancel = True on the underlying Form).
-        if quitting:
+        # False here sets args.Cancel = True on the underlying Form). Without a tray
+        # icon there's no way to reopen a hidden window, so let X actually quit instead.
+        if quitting or pystray is None:
             return None
         window.hide()
         return False
 
     window.events.closing += on_closing
 
-    def on_open(_icon, _item) -> None:
-        window.show()
+    if pystray is not None:
+        def on_open(_icon, _item) -> None:
+            window.show()
 
-    def on_quit(icon, _item) -> None:
-        nonlocal quitting
-        quitting = True
-        window.destroy()
-        icon.stop()
+        def on_quit(icon, _item) -> None:
+            nonlocal quitting
+            quitting = True
+            window.destroy()
+            icon.stop()
 
-    tray_icon = pystray.Icon(
-        WINDOW_TITLE,
-        icon=Image.open(ICON_PATH) if ICON_PATH.exists() else None,
-        title=WINDOW_TITLE,
-        menu=pystray.Menu(
-            pystray.MenuItem("Open", on_open, default=True),
-            pystray.MenuItem("Quit", on_quit),
-        ),
-    )
-    threading.Thread(target=tray_icon.run, daemon=True).start()
+        tray_icon = pystray.Icon(
+            WINDOW_TITLE,
+            icon=Image.open(ICON_PATH) if ICON_PATH.exists() else None,
+            title=WINDOW_TITLE,
+            menu=pystray.Menu(
+                pystray.MenuItem("Open", on_open, default=True),
+                pystray.MenuItem("Quit", on_quit),
+            ),
+        )
+        threading.Thread(target=tray_icon.run, daemon=True).start()
 
     webview.start(icon=str(ICON_PATH) if ICON_PATH.exists() else None)
