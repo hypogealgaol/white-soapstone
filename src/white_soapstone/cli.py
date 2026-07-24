@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
+from pathlib import Path
+
 import click
 
 from .cache import db as cache_db
@@ -194,6 +198,64 @@ def serve_ui() -> None:
     from .ui.app_window import launch
 
     launch()
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+# PyInstaller's --add-data separator is platform-specific (";" on Windows, ":" on
+# everything else) - not the same as os.sep, so computed here explicitly.
+_ADD_DATA_SEP = ";" if sys.platform == "win32" else ":"
+_BUNDLED_DATA = [
+    f"src/white_soapstone/cache/migrations/001_init.sql{_ADD_DATA_SEP}white_soapstone/cache/migrations",
+    f"src/white_soapstone/schema/manifest.schema.json{_ADD_DATA_SEP}white_soapstone/schema",
+    f"src/white_soapstone/web/static{_ADD_DATA_SEP}white_soapstone/web/static",
+]
+
+
+def _run_pyinstaller(name: str, entry: str, *, windowed: bool, icon: str | None) -> None:
+    cmd = ["uv", "run", "pyinstaller", "--noconfirm", "--name", name, "--onefile"]
+    cmd.append("--windowed" if windowed else "--console")
+    for data_arg in _BUNDLED_DATA:
+        cmd += ["--add-data", data_arg]
+    if icon:
+        cmd += ["--icon", icon]
+    cmd.append(entry)
+    click.echo(f"Building {name}...")
+    try:
+        subprocess.run(cmd, cwd=_REPO_ROOT, check=True)
+    except subprocess.CalledProcessError as exc:
+        raise click.ClickException(f"pyinstaller failed building {name} (exit {exc.returncode})") from exc
+    except FileNotFoundError as exc:
+        raise click.ClickException("uv not found on PATH - can't invoke pyinstaller.") from exc
+
+
+@app.command("build")
+@click.option("--skip-cli", is_flag=True, help="Only build the windowed app, skip the console CLI executable.")
+@click.option("--skip-app", is_flag=True, help="Only build the console CLI executable, skip the windowed app.")
+def build(skip_cli: bool, skip_app: bool) -> None:
+    """Package this app into standalone .exe files via PyInstaller, into dist/.
+
+    Windows-only for now - packaging on macOS is unsupported. Reimplements
+    scripts/build_executable.ps1 in pure Python so it doesn't depend on PowerShell.
+    Needs client_secret.json copied next to the output manually afterward - it's never
+    bundled into the executable itself.
+    """
+    if sys.platform != "win32":
+        raise click.ClickException(
+            "`build` only works from a native Windows shell - PyInstaller builds for whatever "
+            "platform it runs on (no cross-compiling), so running this from WSL or macOS would "
+            "silently produce a Linux/Mac binary, not a .exe. Unsupported for now."
+        )
+
+    icon = "src/white_soapstone/web/static/icon.ico"
+
+    if not skip_cli:
+        _run_pyinstaller("white-soapstone", "src/white_soapstone/cli_main.py", windowed=False, icon=None)
+    if not skip_app:
+        _run_pyinstaller("white-soapstone-app", "src/white_soapstone/gui_main.py", windowed=True, icon=icon)
+
+    click.echo("")
+    click.echo(f"Done. Output in {_REPO_ROOT / 'dist'}")
+    click.echo("Copy client_secret.json next to the output before running either.")
 
 
 if __name__ == "__main__":
