@@ -35,11 +35,16 @@ def generate_silent_mp3(
     dest_path: str | Path,
     duration_sec: float,
     bitrate_kbps: int = DEFAULT_BITRATE_KBPS,
+    id3_tags: dict[str, str] | None = None,
 ) -> Path:
     """Generates a silent placeholder MP3 of the given duration at dest_path.
 
     Used for "ghost tracks" - stand-ins for a peer's song stamped with their metadata
     but with no real audio, for manually testing Rekordbox's Track Matching feature.
+    `id3_tags` are written as-is via ffmpeg's `-metadata`: use ffmpeg's own recognized
+    names (title/artist/album/genre/...) for the common fields, or a raw 4-character
+    ID3v2.3 frame id (e.g. "TBPM", "TKEY") for anything without a friendly alias -
+    ffmpeg's mp3 muxer writes unrecognized-but-valid-looking keys as that literal frame.
     Returns dest_path on success. Raises TranscodeError with ffmpeg's stderr on failure.
     """
     dest_path = Path(dest_path)
@@ -53,8 +58,11 @@ def generate_silent_mp3(
         "-t", str(duration_sec),
         "-codec:a", "libmp3lame",
         "-b:a", f"{bitrate_kbps}k",
-        str(dest_path),
     ]
+    for key, value in (id3_tags or {}).items():
+        if value:
+            cmd += ["-metadata", f"{key}={value}"]
+    cmd.append(str(dest_path))
     result = subprocess.run(
         cmd, capture_output=True, encoding="utf-8", errors="replace", creationflags=_CREATIONFLAGS
     )

@@ -235,9 +235,32 @@ def api_create_ghost_track(user_id: str, track_id: str) -> dict:
     short_path = GHOST_EXPORT_DIR / f"{label}_{track_id[:8]}_5sec.mp3"
     full_path = GHOST_EXPORT_DIR / f"{label}_{track_id[:8]}_full.mp3"
 
+    # TBPM/TKEY are raw ID3v2.3 frame ids (no friendly ffmpeg alias) - see
+    # generate_silent_mp3's docstring. BPM is the plain value here, NOT Rekordbox's
+    # internal *100 storage form (that convention is specific to writing DjmdContent
+    # rows directly, not to ID3 tags read back in on import).
+    base_tags = {
+        "artist": track["artist"] or "",
+        "album": track["album"] or "",
+        "genre": track["genre"] or "",
+        "TBPM": str(track["bpm"]) if track["bpm"] else "",
+        "TKEY": track["key"] or "",
+    }
+
     try:
-        ffmpeg.generate_silent_mp3(short_path, duration_sec=GHOST_SHORT_DURATION_SEC)
-        ffmpeg.generate_silent_mp3(full_path, duration_sec=track["duration_sec"])
+        ffmpeg.generate_silent_mp3(
+            short_path,
+            duration_sec=GHOST_SHORT_DURATION_SEC,
+            id3_tags={**base_tags, "title": f"{track['title'] or 'Untitled'} (5s ghost)"},
+        )
+        ffmpeg.generate_silent_mp3(
+            full_path,
+            duration_sec=track["duration_sec"],
+            # Full-length keeps the exact, unsuffixed title/metadata - this is the file
+            # actually meant to stand in for the peer's real track during Track
+            # Matching, so it should look as close to the original as possible.
+            id3_tags={**base_tags, "title": track["title"] or "Untitled"},
+        )
     except ffmpeg.TranscodeError as exc:
         raise HTTPException(500, {"error_code": "TranscodeError", "message": str(exc)}) from exc
 
